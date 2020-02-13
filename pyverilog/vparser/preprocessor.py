@@ -25,43 +25,53 @@ from __future__ import print_function
 import sys
 import os
 import subprocess
+from wheezy.template.engine import Engine
+from wheezy.template.ext.code import CodeExtension
+from wheezy.template.ext.core import CoreExtension
+from wheezy.template.ext.vpp  import VPPAdapterExtension
+from wheezy.template.loader import FileLoader
 
+try:
+    import json
+except ImportError:  # pragma: nocover
+    try:
+        import simplejson as json
+    except ImportError:  # pragma: nocover
+        json = None
+
+def load_context(sources):
+    c = {}
+    for s in sources:
+        if s.endswith('.json'):
+            s = json.load(open(s))
+        else:
+            s = json.loads(s)
+        c.update(s)
+    return c
 
 class VerilogPreprocessor(object):
     def __init__(self, filelist, outputfile='pp.out', include=None, define=None):
 
         if not isinstance(filelist, (tuple, list)):
             filelist = list(filelist)
-
-        self.filelist = filelist
-
-        iverilog = os.environ.get('PYVERILOG_IVERILOG')
-        if iverilog is None:
-            iverilog = 'iverilog'
-
-        if include is None:
-            include = ()
-
-        if define is None:
-            define = ()
-
-        self.iv = [iverilog]
-
-        for inc in include:
-            self.iv.append('-I')
-            self.iv.append(inc)
-
-        for dfn in define:
-            self.iv.append('-D')
-            self.iv.append(dfn)
-
-        self.iv.append('-E')
-        self.iv.append('-o')
-        self.iv.append(outputfile)
+            
+        self.filename = filelist
+        if isinstance(filelist, list) or isinstance(filelist, tuple):
+            self.filename = filelist[0]
+        self.searchpath =['.']
+        self.context = load_context(define)
+        
+        if not include is None:
+            for i in include:
+                self.searchpath.append(i)
 
     def preprocess(self):
-        cmd = self.iv + list(self.filelist)
-        subprocess.call(cmd)
+        ts = '`'
+        extensions = [CoreExtension(ts), CodeExtension(ts), VPPAdapterExtension(ts, ts)]
+        engine = Engine(FileLoader(self.searchpath), extensions)
+    #     engine.global_vars.update({'h': escape})
+        t = engine.get_template(self.filename)
+        return t.render(self.context)
 
 
 def preprocess(
@@ -71,7 +81,4 @@ def preprocess(
     define=None
 ):
     pre = VerilogPreprocessor(filelist, output, include, define)
-    pre.preprocess()
-    text = open(output).read()
-    os.remove(output)
-    return text
+    return pre.preprocess()

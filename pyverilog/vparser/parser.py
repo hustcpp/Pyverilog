@@ -2264,10 +2264,10 @@ class VerilogCodeParser(object):
         self.parser = VerilogParser(outputdir=outputdir, debug=debug)
 
     def preprocess(self):
-        self.preprocessor.preprocess()
-        text = open(self.preprocess_output).read()
-        os.remove(self.preprocess_output)
-        return text
+        return self.preprocessor.preprocess()
+#         text = open(self.preprocess_output).read()
+#         os.remove(self.preprocess_output)
+#         return text
 
     def parse(self, preprocess_output='preprocess.output', debug=0):
         text = self.preprocess()
